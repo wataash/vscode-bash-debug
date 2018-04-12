@@ -121,10 +121,8 @@ export class BashDebugSession extends LoggingDebugSession {
 		//       i.e. at this moment, ["arg0", "arg1 with space"] will be expanded to "arg0 arg1 with space"
 		// use fifo, because --tty '&1' does not work properly for subshell (when bashdb spawns - $() )
 		// when this is fixed in bashdb, use &1
-		this.debuggerProcess = spawn(args.pathBash, ["-c", `
-
-			# http://tldp.org/LDP/abs/html/io-redirection.html
-
+		// http://tldp.org/LDP/abs/html/io-redirection.html
+		const script = `
 			function cleanup()
 			{
 				exit_code=$?
@@ -140,8 +138,8 @@ export class BashDebugSession extends LoggingDebugSession {
 			exec 4>"${fifo_path}" 		# Keep open for writing, bashdb seems close after every write.
 			cd "${args.cwd}"
 			"${args.pathCat}" | "${args.pathBashdb}" --quiet --tty "${fifo_path}" -- "${args.program}" ${args.args.join(" ")}
-			`
-		], { stdio: ["pipe", "pipe", "pipe", "pipe"] });
+		`
+		this.debuggerProcess = spawn(args.pathBash, ["-c", script], { stdio: ["pipe", "pipe", "pipe", "pipe"] });
 
 		this.debuggerProcess.on("error", (error) => {
 			this.sendEvent(new OutputEvent(`${error}`, 'stderr'));
