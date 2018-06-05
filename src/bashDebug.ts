@@ -119,9 +119,10 @@ export class BashDebugSession extends LoggingDebugSession {
 
 		// TODO: treat whitespace in args.args:
 		//       i.e. at this moment, ["arg0", "arg1 with space"] will be expanded to "arg0 arg1 with space"
-		// use fifo, because --tty '&1' does not work properly for subshell (when bashdb spawns - $() )
-		// when this is fixed in bashdb, use &1
-		// http://tldp.org/LDP/abs/html/io-redirection.html
+		// TODO: use fifo, because --tty '&1' does not work properly for subshell (when bashdb spawns - $() )
+		//       when this is fixed in bashdb, use &1
+		//
+		// TODO windows
 		const script = `
 			function cleanup()
 			{
@@ -139,7 +140,13 @@ export class BashDebugSession extends LoggingDebugSession {
 			cd "${args.cwd}"
 			"${args.pathCat}" | "${args.pathBashdb}" --quiet --tty "${fifo_path}" -- "${args.program}" ${args.args.join(" ")}
 		`
-		this.debuggerProcess = spawn(args.pathBash, ["-c", script], { stdio: ["pipe", "pipe", "pipe", "pipe"] });
+		// this.debuggerProcess = spawn(args.pathBash, ["-c", script], { stdio: ["pipe", "pipe", "pipe", "pipe"] });
+		const spawnArgs = ["--", args.program].concat(args.args); // --quiet ?
+		logger.verbose(`spawn(${args.pathBashdb}, ${spawnArgs})`);
+		// this.debuggerProcess = spawn(args.pathBashdb, spawnArgs, { cwd: args.cwd, stdio: ["pipe", "pipe", "pipe", "pipe"] });
+		this.debuggerProcess = spawn(args.pathBashdb, spawnArgs);
+		// TODO pikill windows:bash-c-bashdb
+		// TODO check error
 
 		this.debuggerProcess.on("error", (error) => {
 			this.sendEvent(new OutputEvent(`${error}`, 'stderr'));
@@ -158,6 +165,7 @@ export class BashDebugSession extends LoggingDebugSession {
 		});
 
 		this.debuggerProcess.stdio[3].on("data", (data) => {
+			// TODO logger.verbose
 			if (args.showDebugOutput) {
 				this.sendEvent(new OutputEvent(`${data}`, 'console'));
 			}
@@ -526,7 +534,7 @@ export class BashDebugSession extends LoggingDebugSession {
 
 	protected pauseRequest(response: DebugProtocol.PauseResponse, args: DebugProtocol.PauseArguments): void {
 		if (args.threadId === BashDebugSession.THREAD_ID) {
-			spawn("bash", ["-c", `${this.launchArgs.pathPkill} -INT -P ${this.debuggerProcessParentId} -f bashdb`]).on("exit", () => this.sendResponse(response));
+			// spawn("bash", ["-c", `${this.launchArgs.pathPkill} -INT -P ${this.debuggerProcessParentId} -f bashdb`]).on("exit", () => this.sendResponse(response));
 			return;
 		}
 
